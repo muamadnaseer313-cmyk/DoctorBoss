@@ -1,0 +1,44 @@
+
+name: Build Doctor Boss APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Extract project ZIP
+        run: |
+          mkdir extracted
+          unzip -q "Doctor_Boss_Android_Project(1).zip" -d extracted
+
+      - name: Build APK
+        working-directory: extracted/Doctor_Boss_Android
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Doctor-Boss-APK
+          path: extracted/Doctor_Boss_Android/app/build/outputs/apk/debug/app-debug.apk

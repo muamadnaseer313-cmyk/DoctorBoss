@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دكتور بوس</title>
+<style>
+:root{--navy:#123B5D;--blue:#2D8FB5;--green:#28A879;--bg:#F4F7FA}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Tahoma,Arial,sans-serif;color:#203040}
+header{background:var(--navy);color:white;padding:18px 16px}header h1{margin:0;font-size:23px}header p{margin:7px 0 0;color:#dceaf2}
+main{padding:14px;max-width:850px;margin:auto}.card{background:white;border-radius:14px;padding:15px;margin:12px 0;box-shadow:0 2px 10px #123b5d12}
+h2{font-size:18px;color:var(--navy);margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{background:#eef6fa;border-radius:10px;padding:12px}.stat b{display:block;font-size:23px;color:var(--navy)}
+label{display:block;font-size:13px;margin:9px 0 5px;color:#526273}input,select,textarea{width:100%;padding:11px;border:1px solid #ccd8e0;border-radius:9px;font:inherit;background:white}
+button{border:0;border-radius:9px;padding:11px 14px;background:var(--blue);color:white;font:inherit;font-weight:bold;margin:5px 3px 0 0}
+button.green{background:var(--green)}button.gray{background:#607789}button.red{background:#b94b4b}
+.actions{display:flex;flex-wrap:wrap;gap:5px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 5px;border-bottom:1px solid #e5ebef;text-align:right}th{color:var(--navy)}
+.small{font-size:12px;color:#687987}.hidden{display:none}.pill{font-size:11px;padding:4px 7px;border-radius:20px;background:#e8f4f8}
+@media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}table{font-size:11px}th,td{padding:7px 3px}}
+</style></head>
+<body>
+<header><h1>دكتور بوس</h1><p>إدارة حجوزات ومراجعي العيادة</p></header>
+<main>
+<section class="card">
+<h2>إعدادات العيادة</h2>
+<label>اسم الطبيب</label><input id="doctor" placeholder="أدخل اسم الطبيب">
+<div class="actions"><button onclick="saveDoctor()">حفظ الاسم</button><button class="gray" onclick="exportData()">نسخة احتياطية</button><button class="gray" onclick="document.getElementById('importFile').click()">استعادة نسخة</button><input id="importFile" class="hidden" type="file" accept="application/json" onchange="importData(event)"></div>
+</section>
+<section class="card">
+<h2>ملخص اليوم <span id="today"></span></h2>
+<div class="grid">
+<div class="stat">عدد الحجوزات<b id="count">0</b></div><div class="stat">بانتظار الدخول<b id="waiting">0</b></div>
+<div class="stat">إجمالي الحجوزات<b id="total">0</b></div><div class="stat">صافي المقبوضات<b id="net">0</b></div>
+</div></section>
+<section class="card">
+<h2>إضافة مراجع</h2>
+<label>اسم المراجع *</label><input id="name" placeholder="الاسم الكامل">
+<div class="grid"><div><label>مبلغ الحجز (د.ع) *</label><input id="amount" type="number" min="0" placeholder="مثلاً 10000"></div><div><label>رقم الهاتف</label><input id="phone" inputmode="tel" placeholder="اختياري"></div></div>
+<label>ملاحظات</label><textarea id="notes" rows="2" placeholder="اختياري"></textarea>
+<button class="green" onclick="addPatient()">إضافة وحجز دور</button>
+</section>
+<section class="card">
+<h2>قائمة مراجعي اليوم</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>الدور</th><th>الاسم</th><th>المبلغ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="small">تُحفظ البيانات محلياً على هذا الجهاز. لا تحذف بيانات التطبيق قبل أخذ نسخة احتياطية آمنة.</p>
+</section>
+<section class="card">
+<h2>التقرير اليومي</h2>
+<button onclick="printReport()">طباعة / حفظ PDF</button>
+<button class="gray" onclick="newDay()">بدء يوم جديد</button>
+</section>
+</main>
+<script>
+const KEY='doctorBossDataV1';
+let db=JSON.parse(localStorage.getItem(KEY)||'{"doctor":"","days":{}}');
+const dateKey=()=>new Date().toLocaleDateString('en-CA');
+function day(){let k=dateKey();if(!db.days[k])db.days[k]=[];return db.days[k]}
+function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
+function money(n){return Number(n||0).toLocaleString('en-US')+' د.ع'}
+function saveDoctor(){db.doctor=document.getElementById('doctor').value.trim();save();alert('تم حفظ اسم الطبيب')}
+function addPatient(){
+ let name=document.getElementById('name').value.trim(), amount=Number(document.getElementById('amount').value);
+ if(!name||!document.getElementById('amount').value||amount<0){alert('أدخل اسم المراجع ومبلغ الحجز');return}
+ let d=day();d.push({id:Date.now(),no:d.length?Math.max(...d.map(x=>x.no))+1:1,name,amount,phone:document.getElementById('phone').value,notes:document.getElementById('notes').value,time:new Date().toLocaleTimeString('ar-IQ',{hour:'2-digit',minute:'2-digit'}),status:'بانتظار الدخول',refund:0});
+ ['name','amount','phone','notes'].forEach(x=>document.getElementById(x).value='');save();
+}
+function updateStatus(id,status){let p=day().find(x=>x.id===id);if(p){p.status=status;save()}}
+function refund(id){let p=day().find(x=>x.id===id);if(!p)return;let v=Number(prompt('مبلغ الاسترجاع (د.ع)، المتاح '+(p.amount-p.refund)));if(!v||v<0||v>p.amount-p.refund)return alert('المبلغ غير صحيح');p.refund+=v;p.refundReason=prompt('سبب الاسترجاع (اختياري)')||'';save()}
+function edit(id){let p=day().find(x=>x.id===id);if(!p)return;let n=prompt('تعديل الاسم',p.name);if(n===null)return;let a=prompt('تعديل مبلغ الحجز',p.amount);if(a===null)return;p.name=n.trim()||p.name;p.amount=Math.max(0,Number(a)||0);save()}
+function remove(id){let p=day().find(x=>x.id===id);if(!p)return;if(confirm('إلغاء الحجز؟ سيبقى مسجلاً في التقرير.')){p.status='ملغي';save()}}
+function render(){
+ document.getElementById('doctor').value=db.doctor||'';
+ document.getElementById('today').textContent=new Date().toLocaleDateString('ar-IQ');
+ let d=day(),net=d.reduce((s,p)=>s+p.amount-p.refund,0);
+ document.getElementById('count').textContent=d.length;
+ document.getElementById('waiting').textContent=d.filter(p=>p.status==='بانتظار الدخول').length;
+ document.getElementById('total').textContent=money(d.reduce((s,p)=>s+p.amount,0));
+ document.getElementById('net').textContent=money(net);
+ document.getElementById('rows').innerHTML=d.map(p=>`<tr><td>${p.no}</td><td>${esc(p.name)}<div class="small">${esc(p.time||'')}</div></td><td>${money(p.amount)}${p.refund?`<div class="small">استرجاع: ${money(p.refund)}</div>`:''}</td><td><select onchange="updateStatus(${p.id},this.value)">${['بانتظار الدخول','دخل للطبيب','لم يحضر','ملغي'].map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></td><td><div class="actions"><button class="gray" onclick="edit(${p.id})">تعديل</button><button onclick="refund(${p.id})">استرجاع</button><button class="red" onclick="remove(${p.id})">إلغاء</button></div></td></tr>`).join('');
+}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function printReport(){
+ let d=day(),w=window.open('','_blank');if(!w){alert('اسمح بفتح النوافذ المنبثقة للطباعة');return}
+ w.document.write(`<html dir="rtl" lang="ar"><meta charset="utf-8"><title>تقرير دكتور بوس</title><style>body{font-family:Tahoma;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #aaa;padding:8px;text-align:right}</style><h2>تقرير مراجعي العيادة</h2><p>الطبيب: ${esc(db.doctor)} | التاريخ: ${new Date().toLocaleDateString('ar-IQ')}</p><table><tr><th>الدور</th><th>الاسم</th><th>وقت الوصول</th><th>الحجز</th><th>الاسترجاع</th><th>الحالة</th></tr>${d.map(p=>`<tr><td>${p.no}</td><td>${esc(p.name)}</td><td>${esc(p.time)}</td><td>${p.amount}</td><td>${p.refund}</td><td>${esc(p.status)}</td></tr>`).join('')}</table><h3>صافي المقبوضات: ${money(d.reduce((s,p)=>s+p.amount-p.refund,0))}</h3><script>window.onload=()=>window.print()<\/script></html>`);w.document.close()
+}
+function exportData(){let b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='doctor-boss-backup.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);save();alert('تمت الاستعادة')}catch{alert('ملف غير صالح')}};r.readAsText(f)}
+function newDay(){if(confirm('سيبدأ التطبيق يوماً جديداً، وستبقى أيامك السابقة محفوظة.')){day();save()}}
+render();
+</script></body></html>
